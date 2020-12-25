@@ -1,0 +1,2 @@
+include ':dlfunc'
+rootProject.name = "dlfunc"
