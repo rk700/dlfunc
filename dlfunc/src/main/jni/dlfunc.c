@@ -1,4 +1,5 @@
 #include "include/dlfunc.h"
+#include "JNIHelper_dex.h"
 #include <jni.h>
 #include <android/log.h>
 #include <dlfcn.h>
@@ -91,9 +92,50 @@ void *dlfunc_dlsym(JNIEnv *env, void *handle, const char *symbol) {
     return ptr;
 }
 
+// https://github.com/PAGalaxyLab/YAHFA/issues/161
+// adb shell cmd package compile -m speed -f <package name>
+// method could be aot compiled and the entrypoint would be replaced
+// so we load the dex at runtime with InMemoryDexClassLoader
+static jclass findHelperClass(JNIEnv* env) {
+    jclass classLoader_class = (*env)->FindClass(env, "dalvik/system/InMemoryDexClassLoader");
+    if(classLoader_class == NULL) {
+        LOGE("cannot find InMemoryDexClassLoader");
+        return NULL;
+    }
+
+    jmethodID classCtor = (*env)->GetMethodID(env, classLoader_class, "<init>",
+                                              "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V");
+    if(classCtor == NULL) {
+        LOGE("cannot find InMemoryDexClassLoader.<init>");
+        return NULL;
+    }
+
+    // load the precompiled dex file
+    jobject dexBuffer = (*env)->NewDirectByteBuffer(env, classes_dex, classes_dex_len);
+
+    jobject classLoader = (*env)->NewObject(env, classLoader_class, classCtor, dexBuffer, NULL);
+    if(classLoader == NULL) {
+        LOGE("cannot init InMemoryDexClassLoader");
+        return NULL;
+    }
+
+    jmethodID loadClass = (*env)->GetMethodID(env, classLoader_class, "loadClass",
+                                              "(Ljava/lang/String;)Ljava/lang/Class;");
+    if(loadClass == NULL) {
+        LOGE("cannot find InMemoryDexClassLoader.loadClass");
+        return NULL;
+    }
+
+    jclass targetClass = (*env)->CallObjectMethod(env, classLoader, loadClass,
+                                                  (*env)->NewStringUTF(env, "lab.galaxy.dlfunc.JNIHelper"));
+
+    return targetClass;
+}
+
 int dlfunc_init(JNIEnv* env) {
     if(!jniHelper || !jniCall) {
-        jclass localClass = (*env)->FindClass(env, "lab/galaxy/dlfunc/JNIHelper");
+//        jclass localClass = (*env)->FindClass(env, "lab/galaxy/dlfunc/JNIHelper");
+        jclass localClass = findHelperClass(env);
         if (localClass == NULL) {
             LOGE("cannot find class lab/galaxy/dlfunc/JNIHelper");
             (*env)->ExceptionClear(env);

@@ -20,7 +20,7 @@ The library is built with the new feature of Android Gradle Plugin for [native c
 To use the library, first make sure that Android Gradle Plugin version 4.0+ is used. Then add the library as a dependency:
 
 ```
-implementation 'io.github.rk700:dlfunc:0.1.0'
+implementation 'io.github.rk700:dlfunc:0.1.1'
 ```
 
 Put the following lines into the android block of the module's `build.gradle` file to enable prefab:
